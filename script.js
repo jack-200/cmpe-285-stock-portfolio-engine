@@ -9,6 +9,307 @@ document.addEventListener('DOMContentLoaded', () => {
     'notification-container'
   )
   let historyChart = null
+  let chatPortfolioContext = null
+  const chatMessages = []
+  const CHAT_STORAGE_KEY = 'investiq-chat-v1'
+
+  const chatPanel = document.getElementById('chat-panel')
+  const chatToggle = document.getElementById('chat-toggle')
+  const chatClose = document.getElementById('chat-close')
+  const chatMessagesEl = document.getElementById('chat-messages')
+  const chatForm = document.getElementById('chat-form')
+  const chatInput = document.getElementById('chat-input')
+  const chatSend = document.getElementById('chat-send')
+
+  function setChatOpen (open) {
+    if (!chatPanel || !chatToggle) return
+    chatPanel.classList.toggle('is-open', open)
+    chatPanel.setAttribute('aria-hidden', open ? 'false' : 'true')
+    chatToggle.setAttribute('aria-expanded', open ? 'true' : 'false')
+    if (open) setTimeout(() => chatInput?.focus(), 100)
+  }
+
+  function persistChat () {
+    try {
+      localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(chatMessages.slice(-40)))
+    } catch (_) {}
+  }
+
+  function loadChatFromStorage () {
+    try {
+      const raw = localStorage.getItem(CHAT_STORAGE_KEY)
+      if (!raw) return
+      const arr = JSON.parse(raw)
+      if (!Array.isArray(arr)) return
+      chatMessages.length = 0
+      arr.forEach((m) => {
+        if (m && m.role && typeof m.content === 'string') {
+          chatMessages.push({
+            role: m.role,
+            content: m.content,
+            warn: !!m.warn
+          })
+        }
+      })
+      renderChatMessages()
+    } catch (_) {}
+  }
+
+  async function loadServerHints () {
+    const el = document.getElementById('config-server-hint')
+    const chatExtra = document.getElementById('chat-panel-hint-extra')
+    try {
+      const r = await fetch('/api/health')
+      const h = await r.json()
+      if (el) {
+        const rat = h.llm_rationale_configured
+          ? `Rationale LLM: on (${h.rationale_model || 'model'})`
+          : 'Rationale LLM: off (built-in blurbs)'
+        const ch = h.llm_chat_configured
+          ? `Chat LLM: on (${h.chat_model || 'model'})`
+          : 'Chat LLM: off'
+        el.textContent = `${rat}. ${ch}. Prompts ${h.prompt_version}. Limits ~${h.rate_limits?.suggest_per_minute}/min suggest, ~${h.rate_limits?.chat_per_minute}/min chat. Quotes via Yahoo Finance (often USD for U.S. listings).`
+      }
+      if (chatExtra) {
+        chatExtra.textContent = h.llm_chat_configured
+          ? 'Streaming replies when your browser connects to /api/chat/stream.'
+          : 'Set LLM_BACKEND in .env to enable chat; portfolio blurbs may still be built-in.'
+      }
+    } catch (_) {
+      if (el) el.textContent = 'Could not load /api/health (is the server running?)'
+    }
+  }
+
+  async function consumeChatStream (payload, onDelta) {
+    const response = await fetch('/api/chat/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    if (!response.ok) {
+      const errBody = await response.json().catch(() => ({}))
+      const d = errBody.detail
+      const msg = Array.isArray(d)
+        ? d.map((x) => x.msg || JSON.stringify(x)).join('; ')
+        : (d || response.statusText)
+      throw new Error(msg)
+    }
+    const reader = response.body.getReader()
+    const decoder = new TextDecoder()
+    let buffer = ''
+    let acc = ''
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      buffer += decoder.decode(value, { stream: true })
+      const parts = buffer.split('\n')
+      buffer = parts.pop() || ''
+      for (const line of parts) {
+        if (!line.startsWith('data:')) continue
+        const raw = line.replace(/^data:\s?/, '').trim()
+        if (raw === '[DONE]') {
+          return { text: acc, noLlm: false, streamError: false }
+        }
+        try {
+          const j = JSON.parse(raw)
+          if (j.error === 'no_llm') {
+            return { text: '', noLlm: true, streamError: false }
+          }
+          if (j.error) {
+            return {
+              text: acc,
+              noLlm: false,
+              streamError: true,
+              errMsg: j.message || String(j.error)
+            }
+          }
+          if (j.t) {
+            acc += j.t
+            if (onDelta) onDelta(j.t, acc)
+          }
+        } catch (_) {
+          /* ignore partial SSE frames */
+        }
+      }
+    }
+    return { text: acc, noLlm: false, streamError: false }
+  }
+
+  function renderChatMessages () {
+    if (!chatMessagesEl) return
+    chatMessagesEl.innerHTML = ''
+    chatMessages.forEach((m) => {
+      const div = document.createElement('div')
+      const base =
+        m.role === 'user' ? 'chat-bubble chat-bubble-user' : 'chat-bubble chat-bubble-assistant'
+      const mdCls = m.role === 'assistant' ? ' chat-bubble-md' : ''
+      div.className = (m.warn ? `${base} chat-bubble-warn` : base) + mdCls
+      if (m.role === 'user') {
+        div.innerHTML = escapeHtml(m.content).replace(/\n/g, '<br>')
+      } else {
+        div.innerHTML = formatAssistantMarkdown(m.content)
+      }
+      chatMessagesEl.appendChild(div)
+    })
+    chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight
+    persistChat()
+  }
+
+  chatToggle?.addEventListener('click', () => {
+    const open = !chatPanel?.classList.contains('is-open')
+    setChatOpen(open)
+  })
+  chatClose?.addEventListener('click', () => setChatOpen(false))
+
+  document.addEventListener('keydown', (e) => {
+    if (
+      e.key === 'Escape' &&
+      chatPanel?.classList.contains('is-open')
+    ) {
+      setChatOpen(false)
+    }
+  })
+
+  chatInput?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      chatForm?.requestSubmit()
+    }
+  })
+
+  chatForm?.addEventListener('submit', async (e) => {
+    e.preventDefault()
+    const text = (chatInput?.value || '').trim()
+    if (!text || !chatSend) return
+
+    chatInput.value = ''
+    chatMessages.push({ role: 'user', content: text })
+    renderChatMessages()
+    chatSend.disabled = true
+
+    const payload = {
+      messages: chatMessages.slice(-24)
+    }
+    if (chatPortfolioContext) payload.portfolio_context = chatPortfolioContext
+
+    const appendAssistant = (content, warn) => {
+      chatMessages.push({ role: 'assistant', content, warn })
+      renderChatMessages()
+    }
+
+    try {
+      let usedStream = false
+      try {
+        const live = document.createElement('div')
+        live.className = 'chat-bubble chat-bubble-assistant chat-bubble-md'
+        live.textContent = ''
+        chatMessagesEl?.appendChild(live)
+        try {
+          const streamResult = await consumeChatStream(payload, (_t, acc) => {
+            // Plain text while streaming avoids half-rendered ** markers; final HTML uses Markdown.
+            live.textContent = acc
+            if (chatMessagesEl) chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight
+          })
+
+          if (streamResult.noLlm) {
+            usedStream = false
+          } else if (streamResult.streamError) {
+            appendAssistant(
+              streamResult.text || streamResult.errMsg || 'Stream ended with an error.',
+              true
+            )
+            usedStream = true
+          } else {
+            appendAssistant(streamResult.text || '(Empty stream.)', false)
+            usedStream = true
+          }
+        } finally {
+          live.remove()
+        }
+      } catch {
+        usedStream = false
+      }
+
+      if (!usedStream) {
+        const response = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        })
+
+        const data = await response.json().catch(() => ({}))
+        if (!response.ok) {
+          const d = data.detail
+          const msg = Array.isArray(d)
+            ? d.map((x) => x.msg || JSON.stringify(x)).join('; ')
+            : (d || response.statusText || 'Chat request failed')
+          throw new Error(msg)
+        }
+
+        appendAssistant(data.reply || '(No reply)', data.ok === false)
+
+        if (data.llm_available === false) {
+          showNotification('Chat needs a configured LLM — see terminal or .env.example.', 'error')
+        }
+      }
+    } catch (err) {
+      appendAssistant(String(err.message || err), true)
+      showNotification(err.message || 'Chat failed', 'error')
+    } finally {
+      chatSend.disabled = false
+    }
+  })
+
+  function escapeHtml (text) {
+    if (text == null) return ''
+    const div = document.createElement('div')
+    div.textContent = String(text)
+    return div.innerHTML
+  }
+
+  /** Assistant replies often use Markdown (**bold**, lists); sanitize before innerHTML. */
+  function formatAssistantMarkdown (text) {
+    if (text == null || text === '') return ''
+    const s = String(text)
+    try {
+      if (typeof marked !== 'undefined' && typeof DOMPurify !== 'undefined') {
+        const html = marked.parse(s)
+        return DOMPurify.sanitize(html)
+      }
+    } catch (_) {}
+    return escapeHtml(s).replace(/\n/g, '<br>')
+  }
+
+  function formatRationaleBanner (data) {
+    if (
+      data.rationale_origin === undefined &&
+      (data.stocks?.length ?? 0) > 0 &&
+      !data.stocks.some((s) => s.rationale_source !== undefined)
+    ) {
+      return 'Saved history — explanation source was not recorded for this run.'
+    }
+
+    const origin = data.rationale_origin || 'fallback'
+    const be = data.rationale_llm_backend
+    const model = data.rationale_llm_model
+    const cfg =
+      be && model ? `${be} · ${model}` : model || (be ? String(be) : '')
+
+    if (origin === 'all_llm') {
+      return cfg
+        ? `Explanations generated by your LLM (${cfg}).`
+        : 'Explanations generated by your LLM.'
+    }
+    if (origin === 'partial_llm') {
+      return cfg
+        ? `Mixed: some picks use your LLM (${cfg}); others use built-in text — see tags on each row.`
+        : 'Mixed LLM and built-in explanations — see tags on each row.'
+    }
+    if (cfg) {
+      return `Built-in explanations only. LLM was configured (${cfg}) but did not return usable text — is the model running?`
+    }
+    return 'Built-in explanations (LLM disabled or not configured).'
+  }
 
   function showNotification (message, type = 'success') {
     const toast = document.createElement('div')
@@ -77,21 +378,68 @@ document.addEventListener('DOMContentLoaded', () => {
       currency: 'USD'
     }).format(data.total_value)
 
+    const bannerEl = document.getElementById('rationale-origin-banner')
+    if (bannerEl) {
+      bannerEl.textContent = formatRationaleBanner(data)
+      bannerEl.style.display = 'block'
+    }
+
+    const warnEl = document.getElementById('portfolio-warnings')
+    if (warnEl) {
+      const warns = data.warnings || []
+      if (warns.length) {
+        warnEl.style.display = 'block'
+        warnEl.innerHTML = warns.map((w) => `<p>${escapeHtml(w)}</p>`).join('')
+      } else {
+        warnEl.style.display = 'none'
+        warnEl.innerHTML = ''
+      }
+    }
+
+    chatPortfolioContext = {
+      total_value: data.total_value,
+      stocks: (data.stocks || []).map((s) => ({
+        symbol: s.symbol,
+        name: s.name,
+        allocation_amount: s.allocation_amount,
+        selection_rationale: s.selection_rationale
+      })),
+      rationale_origin: data.rationale_origin
+    }
+
     // Update Stock List
     stocksContainer.innerHTML = ''
     data.stocks.forEach((stock) => {
       const item = document.createElement('div')
       item.className = 'stock-item'
+      const rationale = stock.selection_rationale
+      const src = stock.rationale_source
+      const pill =
+        src === undefined
+          ? ''
+          : src === 'llm'
+            ? '<span class="rationale-pill rationale-pill-llm">LLM</span>'
+            : '<span class="rationale-pill rationale-pill-fallback">Built-in</span>'
+      const rationaleBlock =
+        rationale && String(rationale).trim()
+          ? `<p class="stock-rationale"><span class="stock-rationale-heading"><span class="stock-rationale-label">Why this pick</span>${pill}</span> ${escapeHtml(rationale)}</p>`
+          : ''
+      const sym = escapeHtml(stock.symbol)
+      const fallbackLogo = `https://ui-avatars.com/api/?name=${encodeURIComponent(stock.symbol)}`
+      const logoSrc = escapeHtml(stock.logo_url || fallbackLogo)
       item.innerHTML = `
-                <div class="stock-info">
-                    <img src="${stock.logo_url || 'https://ui-avatars.com/api/?name=' + stock.symbol}" 
-                         alt="${stock.symbol}" 
-                         class="stock-logo"
-                         onerror="this.src='https://ui-avatars.com/api/?name=${stock.symbol}'">
-                    <div>
-                        <h4>${stock.symbol}</h4>
-                        <p>${stock.name}</p>
+                <div class="stock-main">
+                    <div class="stock-info">
+                        <img src="${logoSrc}"
+                             alt="${sym}"
+                             class="stock-logo"
+                             onerror="this.src='${fallbackLogo}'">
+                        <div>
+                            <h4>${sym}</h4>
+                            <p>${escapeHtml(stock.name)}</p>
+                        </div>
                     </div>
+                    ${rationaleBlock}
                 </div>
                 <div class="stock-stats">
                     <div class="stock-price">${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(stock.price)}</div>
@@ -170,6 +518,9 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     })
   }
+
+  loadChatFromStorage()
+  loadServerHints()
 
   // Initial history load
   loadHistory()
