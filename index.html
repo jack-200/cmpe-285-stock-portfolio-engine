@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Stock Portfolio Suggestion Engine</title>
+    <link rel="stylesheet" href="style.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  </head>
+  <body>
+    <div class="hero-overlay"></div>
+
+    <div class="container">
+      <nav class="glass-header">
+        <div class="header-content">
+          <div class="logo">
+            <span class="gradient-text">InvestIQ</span>
+          </div>
+          <p class="subtitle">Stock Portfolio Suggestion Engine</p>
+        </div>
+      </nav>
+
+      <main class="dashboard-grid">
+        <!-- Column 1: Configuration -->
+        <section class="config-panel glass">
+          <h3>Configuration</h3>
+          <form id="portfolio-form" class="config-form">
+            <div class="config-scroll-area">
+              <div class="input-group">
+                <label for="amount">Investment Amount (USD)</label>
+                <input
+                  type="number"
+                  id="amount"
+                  name="amount"
+                  min="5000"
+                  value="5000"
+                  required
+                />
+              </div>
+
+              <div class="input-group">
+                <label>Strategies (Select 1-2)</label>
+                <div class="strategies-grid">
+                  <label class="strategy-card">
+                    <input
+                      type="checkbox"
+                      name="strategies"
+                      value="Ethical Investing"
+                    />
+                    <div class="card-content">
+                      <span class="strategy-icon">🌱</span>
+                      <span class="strategy-name">Ethical</span>
+                    </div>
+                  </label>
+                  <label class="strategy-card">
+                    <input
+                      type="checkbox"
+                      name="strategies"
+                      value="Growth Investing"
+                    />
+                    <div class="card-content">
+                      <span class="strategy-icon">🚀</span>
+                      <span class="strategy-name">Growth</span>
+                    </div>
+                  </label>
+                  <label class="strategy-card">
+                    <input
+                      type="checkbox"
+                      name="strategies"
+                      value="Index Investing"
+                    />
+                    <div class="card-content">
+                      <span class="strategy-icon">📊</span>
+                      <span class="strategy-name">Index</span>
+                    </div>
+                  </label>
+                  <label class="strategy-card">
+                    <input
+                      type="checkbox"
+                      name="strategies"
+                      value="Quality Investing"
+                    />
+                    <div class="card-content">
+                      <span class="strategy-icon">💎</span>
+                      <span class="strategy-name">Quality</span>
+                    </div>
+                  </label>
+                  <label class="strategy-card">
+                    <input
+                      type="checkbox"
+                      name="strategies"
+                      value="Value Investing"
+                    />
+                    <div class="card-content">
+                      <span class="strategy-icon">💰</span>
+                      <span class="strategy-name">Value</span>
+                    </div>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <button type="submit" id="submit-btn" class="primary-btn">
+              Generate
+            </button>
+          </form>
+        </section>
+
+        <!-- Column 2: Results -->
+        <section id="results-panel" class="results-panel glass">
+          <h3>Portfolio Results</h3>
+          <div id="results-placeholder" class="placeholder-text">
+            Enter parameters to generate results.
+          </div>
+          <div id="results-content" style="display: none">
+            <div class="total-value" id="total-value">$0.00</div>
+            <div class="chart-container">
+              <canvas id="historyChart"></canvas>
+            </div>
+            <div id="stocks-container" class="stocks-container"></div>
+          </div>
+        </section>
+
+        <!-- Column 3: History -->
+        <section id="history-panel" class="history-panel glass">
+          <h3>Recent History</h3>
+          <div id="history-container" class="history-container">
+            <p class="hint">No history available.</p>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <div id="loader" class="loader-overlay" style="display: none">
+      <div class="loader"></div>
+      <p>Analyzing Market Data...</p>
+    </div>
+
+    <script src="script.js"></script>
+    <div id="notification-container" class="notification-container"></div>
+  </body>
+</html>

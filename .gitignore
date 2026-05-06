@@ -1,0 +1,14 @@
+# Virtual Environment
+.venv/
+
+# Python Cache
+__pycache__/
+
+# System Files
+.DS_Store
+
+# Persistence
+history.json
+
+# Ruff
+.ruff_cache/
