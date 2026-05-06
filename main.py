@@ -427,7 +427,7 @@ def chat_reply(request: ChatRequest) -> ChatResponse:
         return ChatResponse(
             reply=(
                 "Chat needs an LLM. Configure LLM_BACKEND (ollama or openai) and run "
-                "./setup-local-llm.sh or set OPENAI_API_KEY — see .env.example."
+                "./scripts/setup-local-llm.sh or set OPENAI_API_KEY — see .env.example."
             ),
             llm_available=False,
             ok=False,
@@ -732,28 +732,28 @@ async def health():
 
 @app.get("/")
 async def read_index():
-    return fastapi.responses.FileResponse("index.html")
+    return fastapi.responses.FileResponse("static/index.html")
 
 
 @app.get("/style.css")
 async def get_css():
-    return fastapi.responses.FileResponse("style.css")
+    return fastapi.responses.FileResponse("static/style.css")
 
 
 @app.get("/script.js")
 async def get_js():
-    return fastapi.responses.FileResponse("script.js")
+    return fastapi.responses.FileResponse("static/script.js")
 
 
 @app.get("/hero.png")
 async def get_hero():
-    return fastapi.responses.FileResponse("hero.png")
+    return fastapi.responses.FileResponse("static/hero.png")
 
 
 @app.get("/favicon.svg")
 async def favicon():
     return fastapi.responses.FileResponse(
-        "favicon.svg",
+        "static/favicon.svg",
         media_type="image/svg+xml",
     )
 

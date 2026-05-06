@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # One-time (or occasional) setup: install Ollama if missing, then pull LLM_MODEL.
 # Usage:
-#   ./setup-local-llm.sh           # install when needed + pull model
-#   ./setup-local-llm.sh --pull-only   # only ollama pull (Ollama must exist)
+#   ./scripts/setup-local-llm.sh           # install when needed + pull model
+#   ./scripts/setup-local-llm.sh --pull-only   # only ollama pull (Ollama must exist)
 
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 if [[ -f "$ROOT/.env" ]]; then
@@ -63,5 +63,5 @@ fi
 
 echo "Pulling model '$MODEL' (change with LLM_MODEL in .env). First pull can take several minutes."
 ollama pull "$MODEL"
-echo "Done. Start the app with ./start.sh"
+echo "Done. Start the app with ./scripts/start.sh"
 echo "If requests to Ollama fail, ensure the daemon is running (often automatic after install; otherwise run: ollama serve)."

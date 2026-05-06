@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 VENV="$ROOT/.venv"
@@ -63,7 +63,7 @@ case "$(echo "$LLM_BACKEND" | tr '[:upper:]' '[:lower:]')" in
     _OLLAMA_MODEL="${LLM_MODEL:-llama3.2}"
     echo "LLM rationales: Ollama at $_OLLAMA_HOST (model $_OLLAMA_MODEL)."
     if ! command -v ollama >/dev/null 2>&1; then
-      echo "  No ollama CLI found — run ./setup-local-llm.sh once (installs Ollama on Linux/macOS and pulls $_OLLAMA_MODEL), or install manually from https://ollama.com"
+      echo "  No ollama CLI found — run ./scripts/setup-local-llm.sh once (installs Ollama on Linux/macOS and pulls $_OLLAMA_MODEL), or install manually from https://ollama.com"
     fi
     ;;
   *)
