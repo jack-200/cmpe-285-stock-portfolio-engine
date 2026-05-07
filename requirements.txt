@@ -1,0 +1,7 @@
+fastapi
+jinja2
+openai
+pandas
+pydantic
+uvicorn
+yfinance
