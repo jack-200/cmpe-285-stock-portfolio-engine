@@ -42,6 +42,73 @@ STRATEGIES = {
     "Value Investing": ["BRK-B", "JNJ", "PFE"],
 }
 
+# Risk profiles drive (a) how much of the pie each selected strategy gets and
+# (b) how the dollars are tilted between tickers inside a strategy. Multipliers
+# are normalized so the dollar amounts always sum to the user's input.
+RiskProfile = typing.Literal["Conservative", "Moderate", "Aggressive"]
+DEFAULT_RISK_PROFILE: RiskProfile = "Moderate"
+
+STRATEGY_RISK_WEIGHTS: typing.Dict[str, typing.Dict[str, float]] = {
+    "Conservative": {
+        "Ethical Investing": 0.9,
+        "Growth Investing": 0.5,
+        "Index Investing": 1.4,
+        "Quality Investing": 1.3,
+        "Value Investing": 1.2,
+    },
+    "Moderate": {
+        "Ethical Investing": 1.0,
+        "Growth Investing": 1.0,
+        "Index Investing": 1.0,
+        "Quality Investing": 1.0,
+        "Value Investing": 1.0,
+    },
+    "Aggressive": {
+        "Ethical Investing": 1.1,
+        "Growth Investing": 1.7,
+        "Index Investing": 0.6,
+        "Quality Investing": 0.9,
+        "Value Investing": 0.8,
+    },
+}
+
+# Per-ticker tilt inside a strategy. Missing symbols fall back to 1.0.
+# Conservative favors bonds/large caps; Aggressive favors high-beta growth.
+TICKER_RISK_TILT: typing.Dict[str, typing.Dict[str, float]] = {
+    "Conservative": {
+        "ILTB": 1.6, "VTI": 1.1, "IXUS": 0.9,
+        "BRK-B": 1.2, "JNJ": 1.3, "PFE": 1.0,
+        "MSFT": 1.1, "GOOGL": 1.0, "V": 1.1,
+        "NVDA": 0.7, "AMZN": 1.0, "TSLA": 0.5,
+        "AAPL": 1.1, "ADBE": 1.0, "NSRGY": 1.3,
+    },
+    "Moderate": {},
+    "Aggressive": {
+        "ILTB": 0.5, "VTI": 1.0, "IXUS": 1.1,
+        "BRK-B": 0.9, "JNJ": 0.8, "PFE": 0.9,
+        "MSFT": 1.0, "GOOGL": 1.1, "V": 1.0,
+        "NVDA": 1.5, "AMZN": 1.2, "TSLA": 1.5,
+        "AAPL": 1.1, "ADBE": 1.2, "NSRGY": 0.8,
+    },
+}
+
+# yfinance period strings the UI is allowed to ask for. "5d" preserves the
+# original assignment spec (5-day weekly trend) as the default.
+HistoryPeriod = typing.Literal["5d", "1mo", "3mo", "1y"]
+DEFAULT_HISTORY_PERIOD: HistoryPeriod = "5d"
+ALLOWED_HISTORY_PERIODS: typing.Tuple[HistoryPeriod, ...] = ("5d", "1mo", "3mo", "1y")
+# Underlying yfinance fetch window — always pull at least a year so any UI
+# period can be served from one call, then trimmed for the chart.
+YFINANCE_FETCH_PERIOD = "1y"
+PERIOD_TRIM_DAYS: typing.Dict[HistoryPeriod, typing.Optional[int]] = {
+    "5d": 5,
+    "1mo": 22,
+    "3mo": 66,
+    "1y": None,
+}
+
+DEFAULT_SECTOR_LABEL = "Diversified / ETF"
+
 # Fallback blurbs when LLM rationales are off or the local/cloud model fails.
 STOCK_SELECTION_RATIONALE: typing.Dict[str, typing.Dict[str, str]] = {
     "Ethical Investing": {
@@ -345,6 +412,14 @@ class StockInfo(pydantic.BaseModel):
     logo_url: typing.Optional[str] = None
     selection_rationale: str = ""
     rationale_source: RationaleSource = "fallback"
+    sector: str = DEFAULT_SECTOR_LABEL
+    period_return_pct: typing.Optional[float] = None
+
+
+class SectorAllocation(pydantic.BaseModel):
+    sector: str
+    amount: float
+    pct: float
 
 
 class PortfolioRequest(pydantic.BaseModel):
@@ -359,6 +434,14 @@ class PortfolioRequest(pydantic.BaseModel):
         max_length=MAX_STRATEGIES,
         description=f"Select {MIN_STRATEGIES} or {MAX_STRATEGIES} strategies",
     )
+    risk_profile: RiskProfile = pydantic.Field(
+        default=DEFAULT_RISK_PROFILE,
+        description="Conservative / Moderate / Aggressive — drives weighted allocation.",
+    )
+    history_period: HistoryPeriod = pydantic.Field(
+        default=DEFAULT_HISTORY_PERIOD,
+        description="Trend window: 5d / 1mo / 3mo / 1y.",
+    )
 
 
 class PortfolioResponse(pydantic.BaseModel):
@@ -370,6 +453,12 @@ class PortfolioResponse(pydantic.BaseModel):
     rationale_llm_model: typing.Optional[str] = None
     warnings: typing.List[str] = pydantic.Field(default_factory=list)
     omitted_symbols: typing.List[str] = pydantic.Field(default_factory=list)
+    risk_profile: RiskProfile = DEFAULT_RISK_PROFILE
+    history_period: HistoryPeriod = DEFAULT_HISTORY_PERIOD
+    period_return_pct: typing.Optional[float] = None
+    sector_allocations: typing.List[SectorAllocation] = pydantic.Field(default_factory=list)
+    selected_strategies: typing.List[str] = pydantic.Field(default_factory=list)
+    amount_requested: typing.Optional[float] = None
 
 
 class ChatMessage(pydantic.BaseModel):
@@ -382,12 +471,23 @@ class ChatPortfolioStockSnap(pydantic.BaseModel):
     name: str = ""
     allocation_amount: typing.Optional[float] = None
     selection_rationale: str = ""
+    sector: typing.Optional[str] = None
+    period_return_pct: typing.Optional[float] = None
+
+
+class ChatSectorSnap(pydantic.BaseModel):
+    sector: str
+    pct: float
 
 
 class ChatPortfolioSnapshot(pydantic.BaseModel):
     total_value: typing.Optional[float] = None
     stocks: typing.List[ChatPortfolioStockSnap] = pydantic.Field(default_factory=list)
     rationale_origin: typing.Optional[str] = None
+    risk_profile: typing.Optional[str] = None
+    history_period: typing.Optional[str] = None
+    period_return_pct: typing.Optional[float] = None
+    sector_allocations: typing.List[ChatSectorSnap] = pydantic.Field(default_factory=list)
 
 
 class ChatRequest(pydantic.BaseModel):
@@ -514,29 +614,40 @@ def get_history():
 
 
 # --- Stock Data Fetching Logic ---
+def _resolve_sector(info: typing.Dict[str, typing.Any]) -> str:
+    """ETFs often report empty `sector`; fall back to quoteType-aware label."""
+    sec = (info.get("sector") or "").strip()
+    if sec:
+        return sec
+    qt = (info.get("quoteType") or "").strip().upper()
+    if qt == "ETF":
+        cat = (info.get("category") or "").strip()
+        return cat or DEFAULT_SECTOR_LABEL
+    return DEFAULT_SECTOR_LABEL
+
+
 def _try_fetch_single_symbol(symbol: str) -> typing.Optional[typing.Dict[str, typing.Any]]:
     ticker = yfinance.Ticker(symbol)
     info = ticker.info or {}
     current_price = info.get("regularMarketPrice") or info.get("currentPrice")
+    hist_full = ticker.history(period=YFINANCE_FETCH_PERIOD)
     if current_price is None:
-        hist = ticker.history(period="5d")
-        if hist.empty:
+        if hist_full.empty:
             return None
-        current_price = float(hist["Close"].iloc[-1])
+        current_price = float(hist_full["Close"].iloc[-1])
     else:
         current_price = float(current_price)
     if current_price <= 0:
         return None
 
     name = info.get("longName") or info.get("shortName") or symbol
-    hist_1mo = ticker.history(period="1mo")
-    history = hist_1mo["Close"].tail(HISTORICAL_DAYS_COUNT)
 
     return {
         "name": name,
         "current_price": current_price,
-        "history": history,
+        "history": hist_full["Close"] if not hist_full.empty else None,
         "logo_url": info.get("logo_url"),
+        "sector": _resolve_sector(info),
     }
 
 
@@ -585,9 +696,88 @@ def fallback_selection_rationale_for_symbol(
     return " ".join(parts)
 
 
+# --- Allocation & Aggregation Helpers ---
+def compute_weighted_allocations(
+    amount: float,
+    selected_strategies: typing.List[str],
+    risk_profile: RiskProfile,
+    available_symbols: typing.Set[str],
+) -> typing.Dict[str, float]:
+    """Split `amount` across `available_symbols` using risk-tilted weights.
+
+    1) Each selected strategy gets a slice proportional to STRATEGY_RISK_WEIGHTS.
+       Strategies with zero priceable symbols contribute nothing (their slice
+       gets re-normalized into the remaining ones).
+    2) Inside a strategy slice, the dollars are split by per-ticker tilt
+       (TICKER_RISK_TILT), restricted to priceable symbols.
+    3) A symbol that appears in multiple selected strategies sums the slices.
+
+    The returned dict always sums to `amount` (within float epsilon).
+    """
+    strat_weights = STRATEGY_RISK_WEIGHTS.get(
+        risk_profile, STRATEGY_RISK_WEIGHTS[DEFAULT_RISK_PROFILE]
+    )
+    ticker_tilt = TICKER_RISK_TILT.get(risk_profile, {})
+
+    effective: typing.Dict[str, float] = {}
+    for strategy in selected_strategies:
+        tickers_alive = [s for s in STRATEGIES.get(strategy, []) if s in available_symbols]
+        if not tickers_alive:
+            continue
+        effective[strategy] = strat_weights.get(strategy, 1.0)
+
+    total_strat_w = sum(effective.values())
+    if total_strat_w <= 0:
+        return {sym: amount / max(len(available_symbols), 1) for sym in available_symbols}
+
+    allocations: typing.Dict[str, float] = {sym: 0.0 for sym in available_symbols}
+    for strategy, strat_w in effective.items():
+        strat_amount = amount * (strat_w / total_strat_w)
+        tickers_alive = [s for s in STRATEGIES[strategy] if s in available_symbols]
+        tilts = [ticker_tilt.get(sym, 1.0) for sym in tickers_alive]
+        sum_tilt = sum(tilts) or float(len(tickers_alive))
+        for sym, tilt in zip(tickers_alive, tilts):
+            share = (tilt / sum_tilt) if sum_tilt > 0 else (1.0 / len(tickers_alive))
+            allocations[sym] += strat_amount * share
+
+    return allocations
+
+
+def trim_history_for_period(
+    df: pandas.DataFrame, period: HistoryPeriod
+) -> pandas.DataFrame:
+    """Trim the full 1y dataframe down to what the UI period asked for."""
+    n = PERIOD_TRIM_DAYS.get(period)
+    if n is None:
+        return df
+    return df.tail(n)
+
+
+def build_sector_allocations(
+    stocks: typing.List[StockInfo], total_allocated: float
+) -> typing.List[SectorAllocation]:
+    bucket: typing.Dict[str, float] = {}
+    for s in stocks:
+        bucket[s.sector] = bucket.get(s.sector, 0.0) + s.allocation_amount
+    out: typing.List[SectorAllocation] = []
+    denom = total_allocated if total_allocated > 0 else 1.0
+    for sec, amt in sorted(bucket.items(), key=lambda kv: kv[1], reverse=True):
+        out.append(
+            SectorAllocation(
+                sector=sec,
+                amount=round(amt, ROUNDING_DECIMALS),
+                pct=round((amt / denom) * 100.0, ROUNDING_DECIMALS),
+            )
+        )
+    return out
+
+
 # --- Core Portfolio Engine Logic ---
 def generate_portfolio_suggestion(
-    amount: float, selected_strategies: typing.List[str]
+    amount: float,
+    selected_strategies: typing.List[str],
+    risk_profile: RiskProfile = DEFAULT_RISK_PROFILE,
+    history_period: HistoryPeriod = DEFAULT_HISTORY_PERIOD,
 ) -> PortfolioResponse:
     """Core engine logic to map strategies to stocks and calculate allocations."""
     symbols = []
@@ -604,8 +794,12 @@ def generate_portfolio_suggestion(
         )
 
     symbols_ok = sorted(market_data.keys())
-    num_stocks = len(symbols_ok)
-    amount_per_stock = amount / num_stocks
+    allocations = compute_weighted_allocations(
+        amount=amount,
+        selected_strategies=selected_strategies,
+        risk_profile=risk_profile,
+        available_symbols=set(symbols_ok),
+    )
 
     names_by_symbol = {s: str(market_data[s]["name"]) for s in symbols_ok}
     rationales, rationale_sources = build_selection_rationales(
@@ -614,14 +808,15 @@ def generate_portfolio_suggestion(
     rationale_origin = rationale_origin_from_sources(rationale_sources)
     llm_backend_meta, llm_model_meta = active_llm_meta()
 
-    portfolio_stocks = []
-    total_value = 0
-    history_agg = {}
+    portfolio_stocks: typing.List[StockInfo] = []
+    total_value = 0.0
+    history_agg: typing.Dict[str, typing.Any] = {}
 
     for symbol in symbols_ok:
         data = market_data[symbol]
-        price = data["current_price"]
-        shares = amount_per_stock / price if price > 0 else 0
+        price = float(data["current_price"])
+        alloc = float(allocations.get(symbol, 0.0))
+        shares = alloc / price if price > 0 else 0.0
 
         portfolio_stocks.append(
             StockInfo(
@@ -629,30 +824,56 @@ def generate_portfolio_suggestion(
                 name=data["name"],
                 price=price,
                 shares=shares,
-                allocation_amount=amount_per_stock,
+                allocation_amount=round(alloc, ROUNDING_DECIMALS),
                 logo_url=data.get("logo_url"),
                 selection_rationale=rationales.get(symbol, ""),
                 rationale_source=rationale_sources.get(symbol, "fallback"),
+                sector=data.get("sector") or DEFAULT_SECTOR_LABEL,
             )
         )
 
         total_value += shares * price
-        history_agg[symbol] = data["history"]
+        if data.get("history") is not None and not data["history"].empty:
+            history_agg[symbol] = data["history"]
 
-    weekly_history = []
+    weekly_history: typing.List[HistoryEntry] = []
+    period_return_pct: typing.Optional[float] = None
     if history_agg:
-        df_hist = pandas.DataFrame(history_agg).dropna().tail(HISTORICAL_DAYS_COUNT)
-        for date, row in df_hist.iterrows():
-            day_total = 0
-            for stock in portfolio_stocks:
-                day_total += stock.shares * row[stock.symbol]
-
-            weekly_history.append(
-                HistoryEntry(
-                    date=date.strftime("%Y-%m-%d"),
-                    value=round(day_total, ROUNDING_DECIMALS),
+        df_full = pandas.DataFrame(history_agg).dropna()
+        df_hist = trim_history_for_period(df_full, history_period)
+        if not df_hist.empty:
+            stocks_by_sym = {s.symbol: s for s in portfolio_stocks}
+            for date, row in df_hist.iterrows():
+                day_total = 0.0
+                for sym in df_hist.columns:
+                    st = stocks_by_sym.get(sym)
+                    if st is None:
+                        continue
+                    day_total += st.shares * float(row[sym])
+                weekly_history.append(
+                    HistoryEntry(
+                        date=date.strftime("%Y-%m-%d"),
+                        value=round(day_total, ROUNDING_DECIMALS),
+                    )
                 )
-            )
+
+            first_close = {sym: float(df_hist[sym].iloc[0]) for sym in df_hist.columns}
+            for st in portfolio_stocks:
+                base = first_close.get(st.symbol)
+                if base and base > 0:
+                    st.period_return_pct = round(
+                        (st.price - base) / base * 100.0, ROUNDING_DECIMALS
+                    )
+
+            if len(weekly_history) >= 2:
+                start_v = weekly_history[0].value
+                end_v = weekly_history[-1].value
+                if start_v > 0:
+                    period_return_pct = round(
+                        (end_v - start_v) / start_v * 100.0, ROUNDING_DECIMALS
+                    )
+
+    sector_allocations = build_sector_allocations(portfolio_stocks, amount)
 
     response = PortfolioResponse(
         stocks=portfolio_stocks,
@@ -663,6 +884,12 @@ def generate_portfolio_suggestion(
         rationale_llm_model=llm_model_meta,
         warnings=fetch_warnings,
         omitted_symbols=omitted_symbols,
+        risk_profile=risk_profile,
+        history_period=history_period,
+        period_return_pct=period_return_pct,
+        sector_allocations=sector_allocations,
+        selected_strategies=list(selected_strategies),
+        amount_requested=round(amount, ROUNDING_DECIMALS),
     )
 
     save_to_history(response.model_dump())
@@ -682,7 +909,12 @@ async def get_suggestion(payload: PortfolioRequest, req: Request):
                 raise fastapi.HTTPException(
                     status_code=400, detail=f"Invalid strategy: {strategy}"
                 )
-        return generate_portfolio_suggestion(payload.amount, payload.strategies)
+        return generate_portfolio_suggestion(
+            payload.amount,
+            payload.strategies,
+            payload.risk_profile,
+            payload.history_period,
+        )
     except fastapi.HTTPException:
         raise
     except Exception as e:
