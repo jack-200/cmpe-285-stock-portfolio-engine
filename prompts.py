@@ -2,7 +2,7 @@
 
 import json
 
-PROMPT_VERSION = "2026.05.06-2"
+PROMPT_VERSION = "2026.05.11-1"
 
 
 def rationale_system_message() -> str:
@@ -44,7 +44,11 @@ def chat_system_prompt(strategies_blob: str, ctx_blob: str) -> str:
         "You are InvestIQ Assistant for the Stock Portfolio Suggestion Engine (educational demo).\n"
         "You explain how the app works, what the five strategies mean, and how allocations are split.\n"
         "Strategy names map to fixed ticker lists (JSON below). The UI loads live prices via yfinance.\n"
-        "Minimum investment in the app is $5000; users pick 1–2 strategies.\n"
+        "Minimum investment in the app is $5000; users pick 1–2 strategies plus a risk profile "
+        "(Conservative / Moderate / Aggressive) that tilts both the slice each strategy gets and "
+        "the share each ticker gets within a strategy. The UI also lets users pick a trend window "
+        "(5d / 1mo / 3mo / 1y) and shows per-stock + portfolio return % for that window, plus a "
+        "sector-mix doughnut.\n"
         "Do not give personalized buy/sell recommendations or predict returns. "
         "If asked for advice, give general education only.\n"
         "Format replies with Markdown when it helps readability: short headings (##), **bold** key terms, "

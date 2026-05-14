@@ -5,8 +5,6 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
 VENV="$ROOT/.venv"
-PYTHON="$VENV/bin/python"
-PIP="$VENV/bin/pip"
 REQ="$ROOT/requirements.txt"
 DEPS_STAMP="$VENV/.deps-installed"
 
@@ -20,6 +18,13 @@ if [[ ! -f "$REQ" ]]; then
   exit 1
 fi
 
+# A .venv created on Windows (or a partial venv) has no bin/python on Linux/WSL.
+# Remove it so we can create a proper Linux venv under scripts/start.sh.
+if [[ -d "$VENV" ]] && [[ ! -x "$VENV/bin/python" ]]; then
+  echo "Removing incompatible .venv (no $VENV/bin/python — often a Windows-created venv on a shared drive)."
+  rm -rf "$VENV"
+fi
+
 need_install=false
 if [[ ! -d "$VENV" ]]; then
   echo "Creating virtual environment in .venv ..."
@@ -29,10 +34,17 @@ elif [[ ! -f "$DEPS_STAMP" ]] || [[ "$REQ" -nt "$DEPS_STAMP" ]]; then
   need_install=true
 fi
 
+PYTHON="$VENV/bin/python"
+if [[ ! -x "$PYTHON" ]]; then
+  echo "error: expected a working venv at $PYTHON" >&2
+  exit 1
+fi
+
 if [[ "$need_install" == true ]]; then
   echo "Installing dependencies from requirements.txt (Python OpenAI client talks to local Ollama or cloud APIs) ..."
-  "$PIP" install --upgrade pip
-  "$PIP" install -r "$REQ"
+  # Use python -m pip so we never depend on a broken or missing pip launcher in .venv/bin/.
+  "$PYTHON" -m pip install --upgrade pip
+  "$PYTHON" -m pip install -r "$REQ"
   touch "$DEPS_STAMP"
 fi
 

@@ -1,0 +1,193 @@
+================================================================================
+EMAIL TO GRADER (copy subject + body below). One email per group.
+================================================================================
+
+Subject: CMPE 285 Term Project — Grader Test Cases | InvestIQ Group | Jack Liang; Jiajian Liu; Jeffrey Gu; Sean Patrick Konaka
+
+To: (instructor grading address as specified for your submission)
+
+--------------------------------------------------------------------------------
+GROUP
+--------------------------------------------------------------------------------
+Project / product name: InvestIQ — Stock Portfolio Suggestion Engine
+Repository: cmpe-285-stock-portfolio-engine (team repo as submitted)
+
+Group members (full names):
+  - Jack Liang (jack.liang@sjsu.edu)
+  - Jiajian Liu (jiajian.liu@sjsu.edu)
+  - Jeffrey Gu (jeffrey.gu@sjsu.edu)
+  - Sean Patrick Konaka (seanpatrick.konaka@sjsu.edu)
+
+--------------------------------------------------------------------------------
+PREREQUISITES (GRADER MACHINE)
+--------------------------------------------------------------------------------
+  - Python 3.12 or newer (project metadata requires >=3.12).
+  - Network access (live quotes and history via Yahoo Finance through yfinance).
+  - A modern desktop browser (Chrome, Firefox, or Edge).
+  - Optional: Ollama or OpenAI API key only if you test LLM rationales and chat;
+    the app runs without them using built-in text for “why this pick” and a
+    clear message in chat when no LLM is configured.
+
+--------------------------------------------------------------------------------
+SETUP (LINUX, macOS, OR WSL ON WINDOWS)
+--------------------------------------------------------------------------------
+  1) Clone the team repository and open a terminal in the project root
+     (the folder that contains main.py, requirements.txt, and scripts/).
+
+  2) Make the start script executable once:
+       chmod +x scripts/start.sh
+
+  3) If you previously opened this same folder from Windows and created a
+     .venv there, delete it before running under WSL/Linux so Linux gets a
+     correct venv (or simply run ./scripts/start.sh — it removes an
+     incompatible .venv automatically):
+       rm -rf .venv
+
+  4) Start the application:
+       ./scripts/start.sh
+
+     The script creates .venv if needed, installs requirements.txt using
+     python -m pip, optionally loads .env if present, then runs the server.
+
+  5) Open the dashboard:
+       http://localhost:8000
+
+  6) Optional LLM (not required for core grading):
+       cp .env.example .env
+       Edit .env: set LLM_BACKEND=ollama or openai as documented in .env.example.
+       For local Ollama, see scripts/setup-local-llm.sh in the repo.
+
+--------------------------------------------------------------------------------
+TEN DETAILED TEST CASES (FOLLOW IN ORDER; USE FRESH BROWSER TAB IF NEEDED)
+--------------------------------------------------------------------------------
+
+TC-01 — Server and static UI load
+  Objective: Verify the process starts and the UI is served.
+  Preconditions: Setup steps 1–5 completed; terminal shows Uvicorn on port 8000.
+  Steps:
+    1. In the browser, open http://localhost:8000
+    2. Confirm the page title/header shows “InvestIQ” / Stock Portfolio Suggestion Engine.
+    3. Confirm three main areas: Configuration (left), Portfolio Results (center),
+       Recent History (right).
+  Expected:
+    Page loads without a blank screen. Configuration shows Investment Amount,
+    Risk Profile options, strategy checkboxes, and Generate.
+
+TC-02 — API health (optional curl check)
+  Objective: Verify backend is responding and version metadata is present.
+  Preconditions: Server running.
+  Steps:
+    1. In a second terminal: curl -s http://127.0.0.1:8000/api/health | head -c 400
+  Expected:
+    JSON includes "ok": true, "prompt_version", llm flags, and rate_limits.
+    (Exact model names depend on .env; LLM may show configured: false if unset.)
+
+TC-03 — Happy path: minimum investment, one strategy, default risk and trend
+  Objective: Core portfolio generation meets project spec (min $5000, 1 strategy).
+  Preconditions: Fresh load of http://localhost:8000
+  Steps:
+    1. Set Investment Amount to 5000.
+    2. Leave Risk Profile on “Moderate”.
+    3. Check exactly one strategy, e.g. “Index Investing”.
+    4. Click “Generate”.
+    5. Wait for the loading overlay to finish (may take several seconds; yfinance calls).
+  Expected:
+    “Portfolio Results” shows a total value near $5,000 (small float/market drift allowed).
+    Listed tickers are only from Index Investing (e.g. VTI, IXUS, ILTB — set per app).
+    Each row shows price, shares, allocated dollar amount, and optional “Why this pick”.
+    A line chart appears under “Portfolio Trend” with period toggle; default active is 5D.
+    A sector doughnut appears under “Sector Mix”.
+    “Recent History” gains a new row with timestamp and total value.
+
+TC-04 — Two strategies combined
+  Objective: User may pick two strategies; union of tickers is used.
+  Preconditions: Server running; UI loaded.
+  Steps:
+    1. Set amount to 10000.
+    2. Check “Growth Investing” and “Index Investing” (exactly two).
+    3. Risk Moderate. Click Generate.
+  Expected:
+    Results list includes tickers from both strategies (merged set, no duplicate symbols).
+    Allocated amounts across all rows sum to approximately $10,000 (rounding).
+
+TC-05 — Client validation: strategy count
+  Objective: UI enforces 1–2 strategies.
+  Preconditions: UI loaded.
+  Steps:
+    1. Uncheck all strategies. Click Generate.
+    2. Check three strategies (if the UI allows three; if not, skip 2 and note UI caps at 2).
+  Expected:
+    Toast or notification: must select 1 or 2 strategies. No server crash.
+
+TC-06 — Server validation: amount below minimum
+  Objective: API rejects investment below $5000.
+  Preconditions: Server running.
+  Steps:
+    1. Run:
+       curl -s -o /tmp/out.json -w "%{http_code}" -X POST http://127.0.0.1:8000/api/suggest \
+         -H "Content-Type: application/json" \
+         -d '{"amount":4999,"strategies":["Index Investing"],"risk_profile":"Moderate","history_period":"5d"}'
+    2. echo; cat /tmp/out.json
+  Expected:
+    HTTP status 422 (validation error). Response body mentions amount constraint.
+
+TC-07 — Invalid strategy name (API)
+  Objective: Malformed strategy is rejected.
+  Preconditions: Server running.
+  Steps:
+    1. curl -s -o /tmp/out2.json -w "%{http_code}" -X POST http://127.0.0.1:8000/api/suggest \
+         -H "Content-Type: application/json" \
+         -d '{"amount":5000,"strategies":["Not A Real Strategy"],"risk_profile":"Moderate","history_period":"5d"}'
+    2. cat /tmp/out2.json
+  Expected:
+    HTTP 400 and detail naming the invalid strategy.
+
+TC-08 — Risk profile changes dollar weights (same strategies, same total)
+  Objective: Conservative vs Aggressive tilts allocations; total still equals input.
+  Preconditions: UI loaded.
+  Steps:
+    1. Amount 10000. Select only “Index Investing”. Risk “Conservative”. Generate.
+       Note the “Allocated” USD for ILTB (bond ETF) vs VTI.
+    2. Change only Risk to “Aggressive”, Generate again (same strategy, same amount).
+  Expected:
+    Total portfolio value still ~ $10000. Relative weights shift (e.g. ILTB typically
+    higher under Conservative, growth tickers relatively higher under Aggressive when
+    multi-strategy tests are used). Exact numbers depend on Yahoo data; grader checks
+    that allocation numbers change meaningfully, not identical rows.
+
+TC-09 — Trend period toggle (5D / 1M / 3M / 1Y)
+  Objective: Chart window and portfolio return label respond to period control.
+  Preconditions: A successful generation is already on screen (from TC-03 or TC-04).
+  Steps:
+    1. Click “1M” in the Portfolio Trend toolbar, wait for reload.
+    2. Click “1Y”, wait.
+    3. Click “5D”, wait.
+  Expected:
+    Each click triggers a new request (brief loading). Line chart has more points for
+    longer windows. Header area shows a return percentage pill with text matching the
+    selected window (e.g. “1-Month Trend”, “3-Month Trend”, “1-Year Trend”). No 500 errors.
+
+TC-10 — Recent History replay and sector / per-symbol return display
+  Objective: Persistence and rich display for demo.
+  Preconditions: At least two successful generations done (TC-03 and TC-04).
+  Steps:
+    1. In “Recent History”, click an older entry (not the top one).
+    2. Confirm the center panel updates to that snapshot’s total and tickers.
+    3. Observe “Sector Mix” doughnut legend and slice labels.
+    4. Observe per-row return % under each ticker’s price when history data exists
+       (may be absent if Yahoo returned sparse history for a symbol).
+  Expected:
+    Clicking history repaints results. Sector chart shows non-empty breakdown when
+    sectors are known; ETFs may appear as “Diversified / ETF” or similar fallback label.
+
+--------------------------------------------------------------------------------
+OPTIONAL (LLM FEATURES — NOT REQUIRED FOR PASSING CORE TESTS)
+--------------------------------------------------------------------------------
+  - With LLM_BACKEND=none: open “Chat”, send a message; expect a short error/hint
+    that chat needs a configured LLM.
+  - With Ollama or OpenAI configured per .env.example: chat should stream or reply;
+    “Why this pick” may show an “LLM” pill when model returns valid JSON.
+
+--------------------------------------------------------------------------------
+END OF TEST PLAN
+--------------------------------------------------------------------------------

@@ -9,9 +9,30 @@ document.addEventListener('DOMContentLoaded', () => {
     'notification-container'
   )
   let historyChart = null
+  let sectorChart = null
   let chatPortfolioContext = null
+  let lastRequest = null // { amount, strategies, risk_profile, history_period }
   const chatMessages = []
   const CHAT_STORAGE_KEY = 'investiq-chat-v1'
+
+  const PERIOD_LABELS = {
+    '5d': '5-Day Trend',
+    '1mo': '1-Month Trend',
+    '3mo': '3-Month Trend',
+    '1y': '1-Year Trend'
+  }
+  const SECTOR_COLORS = [
+    '#6366f1',
+    '#a855f7',
+    '#22d3ee',
+    '#f59e0b',
+    '#10b981',
+    '#ef4444',
+    '#ec4899',
+    '#84cc16',
+    '#3b82f6',
+    '#eab308'
+  ]
 
   const chatPanel = document.getElementById('chat-panel')
   const chatToggle = document.getElementById('chat-toggle')
@@ -327,6 +348,48 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 4000)
   }
 
+  function getActivePeriod () {
+    const active = document.querySelector('.period-btn.is-active')
+    return active?.dataset.period || '5d'
+  }
+
+  function setActivePeriod (period) {
+    document.querySelectorAll('.period-btn').forEach((btn) => {
+      btn.classList.toggle('is-active', btn.dataset.period === period)
+    })
+  }
+
+  async function requestSuggestion (payload) {
+    loader.style.display = 'flex'
+    try {
+      const response = await fetch('/api/suggest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}))
+        const d = error.detail
+        const msg = Array.isArray(d)
+          ? d.map((x) => x.msg || JSON.stringify(x)).join('; ')
+          : d || 'Failed to fetch suggestions'
+        throw new Error(msg)
+      }
+
+      const data = await response.json()
+      lastRequest = payload
+      renderResults(data)
+      resultsPlaceholder.style.display = 'none'
+      resultsContent.style.display = 'flex'
+      loadHistory()
+    } catch (error) {
+      showNotification(error.message, 'error')
+    } finally {
+      loader.style.display = 'none'
+    }
+  }
+
   form.addEventListener('submit', async (e) => {
     e.preventDefault()
 
@@ -341,35 +404,30 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const strategies = Array.from(selectedCheckboxes).map((cb) => cb.value)
+    const riskRadio = document.querySelector(
+      'input[name="risk_profile"]:checked'
+    )
+    const risk_profile = riskRadio?.value || 'Moderate'
+    const history_period = getActivePeriod()
 
-    // Show loader
-    loader.style.display = 'flex'
-
-    try {
-      const response = await fetch('/api/suggest', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ amount, strategies })
-      })
-
-      if (!response.ok) {
-        const error = await response.json()
-        throw new Error(error.detail || 'Failed to fetch suggestions')
-      }
-
-      const data = await response.json()
-      renderResults(data)
-      resultsPlaceholder.style.display = 'none'
-      resultsContent.style.display = 'flex'
-      loadHistory()
-    } catch (error) {
-      showNotification(error.message, 'error')
-    } finally {
-      loader.style.display = 'none'
-    }
+    await requestSuggestion({ amount, strategies, risk_profile, history_period })
   })
+
+  document.querySelectorAll('.period-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const period = btn.dataset.period
+      if (!period || btn.classList.contains('is-active')) return
+      setActivePeriod(period)
+      if (!lastRequest) return // nothing generated yet
+      await requestSuggestion({ ...lastRequest, history_period: period })
+    })
+  })
+
+  function formatPct (v) {
+    if (v == null || Number.isNaN(v)) return ''
+    const sign = v > 0 ? '+' : ''
+    return `${sign}${Number(v).toFixed(2)}%`
+  }
 
   function renderResults (data) {
     // Update Total Value
@@ -377,6 +435,23 @@ document.addEventListener('DOMContentLoaded', () => {
       style: 'currency',
       currency: 'USD'
     }).format(data.total_value)
+
+    const returnEl = document.getElementById('portfolio-return')
+    if (returnEl) {
+      const r = data.period_return_pct
+      if (r == null || Number.isNaN(r)) {
+        returnEl.textContent = ''
+        returnEl.className = 'portfolio-return'
+      } else {
+        const cls = r >= 0 ? 'is-up' : 'is-down'
+        const periodLabel =
+          PERIOD_LABELS[data.history_period] || PERIOD_LABELS['5d']
+        returnEl.className = `portfolio-return ${cls}`
+        returnEl.textContent = `${formatPct(r)} · ${periodLabel}`
+      }
+    }
+
+    if (data.history_period) setActivePeriod(data.history_period)
 
     const bannerEl = document.getElementById('rationale-origin-banner')
     if (bannerEl) {
@@ -402,9 +477,18 @@ document.addEventListener('DOMContentLoaded', () => {
         symbol: s.symbol,
         name: s.name,
         allocation_amount: s.allocation_amount,
-        selection_rationale: s.selection_rationale
+        selection_rationale: s.selection_rationale,
+        sector: s.sector,
+        period_return_pct: s.period_return_pct
       })),
-      rationale_origin: data.rationale_origin
+      rationale_origin: data.rationale_origin,
+      risk_profile: data.risk_profile,
+      history_period: data.history_period,
+      period_return_pct: data.period_return_pct,
+      sector_allocations: (data.sector_allocations || []).map((s) => ({
+        sector: s.sector,
+        pct: s.pct
+      }))
     }
 
     // Update Stock List
@@ -427,6 +511,15 @@ document.addEventListener('DOMContentLoaded', () => {
       const sym = escapeHtml(stock.symbol)
       const fallbackLogo = `https://ui-avatars.com/api/?name=${encodeURIComponent(stock.symbol)}`
       const logoSrc = escapeHtml(stock.logo_url || fallbackLogo)
+      const sectorBadge = stock.sector
+        ? `<span class="stock-sector-badge" title="Sector">${escapeHtml(stock.sector)}</span>`
+        : ''
+      const r = stock.period_return_pct
+      let returnBlock = ''
+      if (r != null && !Number.isNaN(r)) {
+        const cls = r >= 0 ? 'is-up' : 'is-down'
+        returnBlock = `<div class="stock-return ${cls}">${formatPct(r)}</div>`
+      }
       item.innerHTML = `
                 <div class="stock-main">
                     <div class="stock-info">
@@ -435,7 +528,7 @@ document.addEventListener('DOMContentLoaded', () => {
                              class="stock-logo"
                              onerror="this.src='${fallbackLogo}'">
                         <div>
-                            <h4>${sym}</h4>
+                            <h4>${sym} ${sectorBadge}</h4>
                             <p>${escapeHtml(stock.name)}</p>
                         </div>
                     </div>
@@ -443,6 +536,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
                 <div class="stock-stats">
                     <div class="stock-price">${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(stock.price)}</div>
+                    ${returnBlock}
                     <div class="stock-shares">${stock.shares.toFixed(4)} shares</div>
                     <div class="stock-allocation">Allocated: ${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(stock.allocation_amount)}</div>
                 </div>
@@ -450,15 +544,16 @@ document.addEventListener('DOMContentLoaded', () => {
       stocksContainer.appendChild(item)
     })
 
-    // Update Chart
-    renderChart(data.weekly_history)
+    // Update Charts
+    renderChart(data.weekly_history, data.history_period)
+    renderSectorChart(data.sector_allocations || [])
 
     // Show Results
     resultsPlaceholder.style.display = 'none'
     resultsContent.style.display = 'block'
   }
 
-  function renderChart (history) {
+  function renderChart (history, period) {
     const ctx = document.getElementById('historyChart').getContext('2d')
 
     if (historyChart) {
@@ -467,6 +562,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const labels = history.map((h) => h.date)
     const values = history.map((h) => h.value)
+    const periodLabel = PERIOD_LABELS[period] || PERIOD_LABELS['5d']
+    // Long ranges crowd the x-axis; let Chart.js auto-thin tick labels.
+    const ptRadius = values.length > 30 ? 0 : 4
 
     historyChart = new Chart(ctx, {
       type: 'line',
@@ -474,7 +572,7 @@ document.addEventListener('DOMContentLoaded', () => {
         labels,
         datasets: [
           {
-            label: 'Portfolio Value (5-Day Trend)',
+            label: `Portfolio Value (${periodLabel})`,
             data: values,
             borderColor: '#6366f1',
             backgroundColor: 'rgba(99, 102, 241, 0.1)',
@@ -482,7 +580,7 @@ document.addEventListener('DOMContentLoaded', () => {
             fill: true,
             tension: 0.4,
             pointBackgroundColor: '#6366f1',
-            pointRadius: 4
+            pointRadius: ptRadius
           }
         ]
       },
@@ -490,15 +588,20 @@ document.addEventListener('DOMContentLoaded', () => {
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-          legend: {
-            display: false
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (item) =>
+                new Intl.NumberFormat('en-US', {
+                  style: 'currency',
+                  currency: 'USD'
+                }).format(item.parsed.y)
+            }
           }
         },
         scales: {
           y: {
-            grid: {
-              color: 'rgba(255, 255, 255, 0.05)'
-            },
+            grid: { color: 'rgba(255, 255, 255, 0.05)' },
             ticks: {
               color: '#94a3b8',
               callback: function (value) {
@@ -507,11 +610,62 @@ document.addEventListener('DOMContentLoaded', () => {
             }
           },
           x: {
-            grid: {
-              display: false
-            },
+            grid: { display: false },
             ticks: {
-              color: '#94a3b8'
+              color: '#94a3b8',
+              maxRotation: 0,
+              autoSkip: true,
+              maxTicksLimit: 8
+            }
+          }
+        }
+      }
+    })
+  }
+
+  function renderSectorChart (sectors) {
+    const canvas = document.getElementById('sectorChart')
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (sectorChart) {
+      sectorChart.destroy()
+      sectorChart = null
+    }
+    if (!sectors || sectors.length === 0) return
+
+    const labels = sectors.map((s) => s.sector)
+    const data = sectors.map((s) => Number(s.pct))
+    const colors = sectors.map((_, i) => SECTOR_COLORS[i % SECTOR_COLORS.length])
+
+    sectorChart = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels,
+        datasets: [
+          {
+            data,
+            backgroundColor: colors,
+            borderColor: 'rgba(15, 23, 42, 0.85)',
+            borderWidth: 2
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        cutout: '62%',
+        plugins: {
+          legend: {
+            position: 'right',
+            labels: {
+              color: '#cbd5e1',
+              boxWidth: 10,
+              font: { size: 10 }
+            }
+          },
+          tooltip: {
+            callbacks: {
+              label: (item) => `${item.label}: ${item.parsed.toFixed(2)}%`
             }
           }
         }
@@ -546,7 +700,23 @@ document.addEventListener('DOMContentLoaded', () => {
                     <span class="history-date">${date.toLocaleString()}</span>
                     <div class="history-summary">${new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(item.data.total_value)}</div>
                 `
-        el.onclick = () => renderResults(item.data)
+        el.onclick = () => {
+          const d = item.data || {}
+          renderResults(d)
+          // Let the period toggle replay this saved run if all params survived.
+          if (
+            d.amount_requested != null &&
+            Array.isArray(d.selected_strategies) &&
+            d.selected_strategies.length
+          ) {
+            lastRequest = {
+              amount: d.amount_requested,
+              strategies: d.selected_strategies,
+              risk_profile: d.risk_profile || 'Moderate',
+              history_period: d.history_period || '5d'
+            }
+          }
+        }
         historyContainer.appendChild(el)
       })
     } catch (error) {

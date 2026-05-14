@@ -55,6 +55,30 @@
               </div>
 
               <div class="input-group">
+                <label for="risk-profile">Risk Profile</label>
+                <div class="risk-profile-group" role="radiogroup" aria-label="Risk profile">
+                  <label class="risk-option">
+                    <input type="radio" name="risk_profile" value="Conservative" />
+                    <span>Conservative</span>
+                  </label>
+                  <label class="risk-option">
+                    <input
+                      type="radio"
+                      name="risk_profile"
+                      value="Moderate"
+                      checked
+                    />
+                    <span>Moderate</span>
+                  </label>
+                  <label class="risk-option">
+                    <input type="radio" name="risk_profile" value="Aggressive" />
+                    <span>Aggressive</span>
+                  </label>
+                </div>
+                <p class="hint">Tilts allocation between strategies and tickers.</p>
+              </div>
+
+              <div class="input-group">
                 <label>Strategies (Select 1-2)</label>
                 <div class="strategies-grid">
                   <label class="strategy-card">
@@ -129,7 +153,14 @@
             Enter parameters to generate results.
           </div>
           <div id="results-content" style="display: none">
-            <div class="total-value" id="total-value">$0.00</div>
+            <div class="value-header">
+              <div class="total-value" id="total-value">$0.00</div>
+              <div
+                id="portfolio-return"
+                class="portfolio-return"
+                aria-live="polite"
+              ></div>
+            </div>
             <p
               id="rationale-origin-banner"
               class="rationale-origin-banner"
@@ -142,8 +173,45 @@
               style="display: none"
               aria-live="polite"
             ></div>
-            <div class="chart-container">
-              <canvas id="historyChart"></canvas>
+            <div class="charts-row">
+              <div class="chart-block chart-block-trend">
+                <div class="chart-block-header">
+                  <span class="chart-block-title">Portfolio Trend</span>
+                  <div
+                    class="period-toggle"
+                    role="radiogroup"
+                    aria-label="Trend period"
+                  >
+                    <button
+                      type="button"
+                      class="period-btn is-active"
+                      data-period="5d"
+                    >
+                      5D
+                    </button>
+                    <button type="button" class="period-btn" data-period="1mo">
+                      1M
+                    </button>
+                    <button type="button" class="period-btn" data-period="3mo">
+                      3M
+                    </button>
+                    <button type="button" class="period-btn" data-period="1y">
+                      1Y
+                    </button>
+                  </div>
+                </div>
+                <div class="chart-container">
+                  <canvas id="historyChart"></canvas>
+                </div>
+              </div>
+              <div class="chart-block chart-block-sector">
+                <div class="chart-block-header">
+                  <span class="chart-block-title">Sector Mix</span>
+                </div>
+                <div class="chart-container chart-container-sector">
+                  <canvas id="sectorChart"></canvas>
+                </div>
+              </div>
             </div>
             <div id="stocks-container" class="stocks-container"></div>
           </div>
