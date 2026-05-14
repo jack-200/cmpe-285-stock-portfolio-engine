@@ -3,6 +3,7 @@
 
 # Virtual Environment
 .venv/
+.pptx-venv/
 
 # Python Cache
 __pycache__/

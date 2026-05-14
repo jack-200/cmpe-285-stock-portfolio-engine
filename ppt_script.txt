@@ -1,0 +1,132 @@
+CMPE 285 — Stock Portfolio Suggestion Engine
+Voice-over scripts (for CMPE285_Stock_Portfolio_Engine_Slides.pptx)
+
+Timing tip: ~45–60s on Slide 1; ~50–70s each on Slides 2–5 (about 4–5 minutes total for Part A). Trim if you need to stay under 5 minutes.
+
+================================================================================
+SLIDE 1 — Title (team & project)
+================================================================================
+
+Hi, we’re [YOUR GROUP NAME] from CMPE 285. Our team is [Name 1], [Name 2],
+[Name 3], and [Name 4].
+
+For this project we built the Stock Portfolio Suggestion Engine — a web
+application that helps a user choose an investment style, enter how much they
+want to invest, and get a suggested mix of real stocks and ETFs backed by live
+market data from Yahoo Finance.
+
+In the next few slides we’ll walk through how the system is built, what it does
+for users, what we added beyond the basics, and the main challenges we hit while
+implementing it.
+
+================================================================================
+SLIDE 2 — Overall architecture
+================================================================================
+
+Our app follows a classic web architecture. The user works in a browser: we
+built the interface with HTML, CSS, and JavaScript, and we use Chart.js for the
+price trend and sector charts. There’s also an optional InvestIQ chat panel for
+questions about the portfolio.
+
+On the server side we run Python 3.12 with FastAPI and Uvicorn. FastAPI serves
+the main page, static files, and several API endpoints — some return JSON, and
+the chat endpoint can stream tokens as they’re generated.
+
+Market data comes through yfinance, which pulls quotes and historical prices
+from Yahoo Finance. The UI can show different lookback windows — for example
+five days up through a year — and we fetch a wider range on the server so we
+can trim it for the chart the user selects.
+
+Artificial intelligence is optional. We talk to an OpenAI-compatible API, so
+you can run a local model through Ollama or use OpenAI in the cloud. We use that
+for short rationales on each line item and for conversational answers in chat.
+If the model isn’t configured or fails, we still show built-in explanation text
+so the demo doesn’t break.
+
+Finally, we persist a small history of recent portfolio generations in a
+history.json file on disk, which powers our /api/history endpoint for reviewing
+past runs.
+
+================================================================================
+SLIDE 3 — Core features
+================================================================================
+
+The heart of the product is five investment strategies: Ethical, Growth, Index,
+Quality, and Value. Each strategy maps to three specific tickers — for example
+growth might include names like NVIDIA, Amazon, and Tesla, while index investing
+uses broad ETFs. The assignment allows the user to pick one or two strategies,
+and we enforce a minimum investment of five thousand dollars so the inputs stay
+realistic.
+
+Users also pick a risk profile — Conservative, Moderate, or Aggressive. That
+doesn’t just change labels: it changes how dollars are split across the selected
+strategies and how we tilt individual holdings inside a strategy, then we
+normalize everything so the dollar amounts add up exactly to what the user
+typed.
+
+The output shows how much money goes to each symbol, the latest price we got
+from the market, a price trend chart for the portfolio, and a sector breakdown
+chart. Each line can include a short “why this pick” blurb, either from the
+language model or from our fallback text.
+
+Behind the scenes, graders or developers can hit /api/suggest for the
+portfolio, /api/history for recent runs, /api/health to see whether LLM features
+are on, and /api/chat or /api/chat/stream for the assistant.
+
+To run it locally, we document ./scripts/start.sh, which prepares the virtual
+environment and starts the app on localhost port 8000, with optional .env
+settings copied from .env.example.
+
+================================================================================
+SLIDE 4 — Extra features
+================================================================================
+
+Beyond the core assignment, we added InvestIQ — a chat that’s aware of the last
+portfolio the user generated, so questions like “why so much in bonds?” or “what
+if I were more aggressive?” stay in context. When chat is enabled, answers can
+stream in real time over /api/chat/stream, which feels more responsive than
+waiting for one big JSON blob.
+
+We also split configuration so rationale and chat can use different models or
+endpoints if you want — that’s all documented in .env.example.
+
+For reliability, we added retries and timeouts around Yahoo data, rate limiting
+on the suggest and chat routes so one client can’t hammer the server, and
+fallback rationales whenever the LLM is off or errors.
+
+On the UX side, we used a glass-style dashboard, we surface health hints in the
+page so you know if you’re in “LLM on” or “built-in blurbs” mode, and we persist
+chat in the browser’s localStorage so a refresh doesn’t wipe the conversation.
+
+We also published a GitHub Pages build as a static preview of the UI; the
+grader should know that full quotes, charts, and LLM behavior require running the
+Python backend locally, as described in the README.
+
+================================================================================
+SLIDE 5 — Implementation challenges
+================================================================================
+
+The biggest operational headache was market data: Yahoo and yfinance can be slow
+or flaky, so we had to balance retries and timeouts with clear error messages
+instead of a blank screen.
+
+Second was money math: combining risk-based weights across strategies with
+per-ticker tilts, then normalizing so totals always match the user’s amount, is
+easy to get wrong by a few cents or double-count something — we spent time
+testing edge cases and different risk combinations.
+
+Third was the LLM layer: handling timeouts, parsing streaming responses in
+JavaScript, and degrading gracefully when Ollama isn’t running or the API key
+is missing — we never wanted a failed model to block the whole portfolio view.
+
+Fourth was scope: the spec limits you to one or two strategies and a minimum
+investment, but we still wanted charts, history, and chat to feel cohesive
+without breaking those rules.
+
+Last was environment parity: everyone needed Python 3.12, the same dependency
+set, and a predictable way to load .env — our start.sh script and optional
+setup-local-llm.sh for Ollama were how we made demos repeatable across Linux and
+Mac machines.
+
+That’s a quick tour of our architecture, features, extras, and challenges —
+thanks for watching.
