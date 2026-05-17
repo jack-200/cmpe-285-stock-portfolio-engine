@@ -52,7 +52,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function persistChat () {
     try {
-      localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(chatMessages.slice(-40)))
+      localStorage.setItem(
+        CHAT_STORAGE_KEY,
+        JSON.stringify(chatMessages.slice(-40))
+      )
     } catch (_) {}
   }
 
@@ -97,7 +100,7 @@ document.addEventListener('DOMContentLoaded', () => {
           : 'Set LLM_BACKEND in .env to enable chat; portfolio blurbs may still be built-in.'
       }
     } catch (_) {
-      if (el) el.textContent = 'Could not load /api/health (is the server running?)'
+      if (el) { el.textContent = 'Could not load /api/health (is the server running?)' }
     }
   }
 
@@ -112,7 +115,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const d = errBody.detail
       const msg = Array.isArray(d)
         ? d.map((x) => x.msg || JSON.stringify(x)).join('; ')
-        : (d || response.statusText)
+        : d || response.statusText
       throw new Error(msg)
     }
     const reader = response.body.getReader()
@@ -162,7 +165,9 @@ document.addEventListener('DOMContentLoaded', () => {
     chatMessages.forEach((m) => {
       const div = document.createElement('div')
       const base =
-        m.role === 'user' ? 'chat-bubble chat-bubble-user' : 'chat-bubble chat-bubble-assistant'
+        m.role === 'user'
+          ? 'chat-bubble chat-bubble-user'
+          : 'chat-bubble chat-bubble-assistant'
       const mdCls = m.role === 'assistant' ? ' chat-bubble-md' : ''
       div.className = (m.warn ? `${base} chat-bubble-warn` : base) + mdCls
       if (m.role === 'user') {
@@ -183,10 +188,7 @@ document.addEventListener('DOMContentLoaded', () => {
   chatClose?.addEventListener('click', () => setChatOpen(false))
 
   document.addEventListener('keydown', (e) => {
-    if (
-      e.key === 'Escape' &&
-      chatPanel?.classList.contains('is-open')
-    ) {
+    if (e.key === 'Escape' && chatPanel?.classList.contains('is-open')) {
       setChatOpen(false)
     }
   })
@@ -229,14 +231,16 @@ document.addEventListener('DOMContentLoaded', () => {
           const streamResult = await consumeChatStream(payload, (_t, acc) => {
             // Plain text while streaming avoids half-rendered ** markers; final HTML uses Markdown.
             live.textContent = acc
-            if (chatMessagesEl) chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight
+            if (chatMessagesEl) { chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight }
           })
 
           if (streamResult.noLlm) {
             usedStream = false
           } else if (streamResult.streamError) {
             appendAssistant(
-              streamResult.text || streamResult.errMsg || 'Stream ended with an error.',
+              streamResult.text ||
+                streamResult.errMsg ||
+                'Stream ended with an error.',
               true
             )
             usedStream = true
@@ -263,14 +267,17 @@ document.addEventListener('DOMContentLoaded', () => {
           const d = data.detail
           const msg = Array.isArray(d)
             ? d.map((x) => x.msg || JSON.stringify(x)).join('; ')
-            : (d || response.statusText || 'Chat request failed')
+            : d || response.statusText || 'Chat request failed'
           throw new Error(msg)
         }
 
         appendAssistant(data.reply || '(No reply)', data.ok === false)
 
         if (data.llm_available === false) {
-          showNotification('Chat needs a configured LLM — see terminal or .env.example.', 'error')
+          showNotification(
+            'Chat needs a configured LLM — see terminal or .env.example.',
+            'error'
+          )
         }
       }
     } catch (err) {
@@ -410,7 +417,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const risk_profile = riskRadio?.value || 'Moderate'
     const history_period = getActivePeriod()
 
-    await requestSuggestion({ amount, strategies, risk_profile, history_period })
+    await requestSuggestion({
+      amount,
+      strategies,
+      risk_profile,
+      history_period
+    })
   })
 
   document.querySelectorAll('.period-btn').forEach((btn) => {
@@ -635,7 +647,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const labels = sectors.map((s) => s.sector)
     const data = sectors.map((s) => Number(s.pct))
-    const colors = sectors.map((_, i) => SECTOR_COLORS[i % SECTOR_COLORS.length])
+    const colors = sectors.map(
+      (_, i) => SECTOR_COLORS[i % SECTOR_COLORS.length]
+    )
 
     sectorChart = new Chart(ctx, {
       type: 'doughnut',

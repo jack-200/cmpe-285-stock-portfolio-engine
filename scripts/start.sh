@@ -82,4 +82,5 @@ case "$(echo "$LLM_BACKEND" | tr '[:upper:]' '[:lower:]')" in
     echo "LLM rationales: unknown LLM_BACKEND=$LLM_BACKEND — using built-in text."
     ;;
 esac
-exec "$PYTHON" "$ROOT/main.py"
+exec "$PYTHON" -m app.main
+

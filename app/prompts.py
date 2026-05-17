@@ -1,4 +1,7 @@
-"""Versioned LLM prompts — bump PROMPT_VERSION when behavior changes."""
+"""
+This file holds the text prompt templates we send to our AI models.
+It keeps all the prompt engineering instructions in one clean place.
+"""
 
 import json
 

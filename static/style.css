@@ -828,7 +828,9 @@ input[type="number"]:focus {
   color: #fff;
   cursor: pointer;
   box-shadow: 0 12px 28px rgba(99, 102, 241, 0.35);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
 }
 
 .chat-toggle-btn:hover {

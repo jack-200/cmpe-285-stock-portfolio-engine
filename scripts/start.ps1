@@ -47,4 +47,4 @@ Write-Host "LLM Backend:  $env:LLM_BACKEND"
 Write-Host "LLM Model:    $env:LLM_MODEL"
 Write-Host ""
 
-& "$VenvDir\Scripts\python.exe" "$ProjectRoot\main.py"
+& "$VenvDir\Scripts\python.exe" -m app.main
