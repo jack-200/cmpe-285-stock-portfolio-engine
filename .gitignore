@@ -16,3 +16,9 @@ history.json
 
 # Ruff
 .ruff_cache/
+
+# Logs
+boot.log
+boot.err
+*.log
+*.err
