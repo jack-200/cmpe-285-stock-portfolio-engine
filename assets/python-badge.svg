@@ -1,25 +1,68 @@
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="112" height="20" role="img" aria-label="Python: 3.12+">
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  xmlns:xlink="http://www.w3.org/1999/xlink"
+  width="112"
+  height="20"
+  role="img"
+  aria-label="Python: 3.12+"
+>
   <title>Python: 3.12+</title>
   <linearGradient id="s" x2="0" y2="100%">
-    <stop offset="0" stop-color="#bbb" stop-opacity=".1"/>
-    <stop offset="1" stop-opacity=".1"/>
+    <stop offset="0" stop-color="#bbb" stop-opacity=".1" />
+    <stop offset="1" stop-opacity=".1" />
   </linearGradient>
   <clipPath id="r">
-    <rect width="112" height="20" rx="3" fill="#fff"/>
+    <rect width="112" height="20" rx="3" fill="#fff" />
   </clipPath>
   <g clip-path="url(#r)">
-    <rect width="61" height="20" fill="#555"/>
-    <rect x="61" width="51" height="20" fill="#3776ab"/>
-    <rect width="112" height="20" fill="url(#s)"/>
+    <rect width="61" height="20" fill="#555" />
+    <rect x="61" width="51" height="20" fill="#3776ab" />
+    <rect width="112" height="20" fill="url(#s)" />
   </g>
-  <g fill="#fff" text-anchor="middle" font-family="Verdana,Geneva,sans-serif" text-rendering="geometricPrecision" font-size="110">
-    <text aria-hidden="true" x="395" y="150" fill="#010101" fill-opacity=".3" transform="scale(.1)" textLength="330">python</text>
-    <text x="395" y="140" transform="scale(.1)" fill="#fff" textLength="330">python</text>
-    <text aria-hidden="true" x="855" y="150" fill="#010101" fill-opacity=".3" transform="scale(.1)" textLength="410">3.12+</text>
-    <text x="855" y="140" transform="scale(.1)" fill="#fff" textLength="410">3.12+</text>
+  <g
+    fill="#fff"
+    text-anchor="middle"
+    font-family="Verdana,Geneva,sans-serif"
+    text-rendering="geometricPrecision"
+    font-size="110"
+  >
+    <text
+      aria-hidden="true"
+      x="395"
+      y="150"
+      fill="#010101"
+      fill-opacity=".3"
+      transform="scale(.1)"
+      textLength="330"
+    >
+      python
+    </text>
+    <text x="395" y="140" transform="scale(.1)" fill="#fff" textLength="330">
+      python
+    </text>
+    <text
+      aria-hidden="true"
+      x="855"
+      y="150"
+      fill="#010101"
+      fill-opacity=".3"
+      transform="scale(.1)"
+      textLength="410"
+    >
+      3.12+
+    </text>
+    <text x="855" y="140" transform="scale(.1)" fill="#fff" textLength="410">
+      3.12+
+    </text>
   </g>
   <g transform="translate(6, 2.5) scale(0.85)">
-    <path d="M7.18 0c-3.62 0-3.39 1.57-3.39 1.57v1.44h3.44v.49H2.38S0 3.14 0 6.78c0 3.65 2.11 3.51 2.11 3.51h1.26V8.65s-.08-1.92 1.9-1.92h3.44c1.98 0 1.9-1.83 1.9-1.83V1.5c0-1.5-2.03-1.5-2.03-1.5zm-2.02.94a.55.55 0 1 1 0 1.1.55.55 0 0 1 0-1.1z" fill="#306998"/>
-    <path d="M7.82 14c3.62 0 3.39-1.57 3.39-1.57v-1.44H7.77v-.49h4.85s2.38.36 2.38-3.28c0-3.65-2.11-3.51-2.11-3.51h-1.26v1.64s.08 1.92-1.9 1.92H7.29c-1.98 0-1.9 1.83-1.9 1.83V12.5c0 1.5 2.03 1.5 2.03 1.5zm2.02-.94a.55.55 0 1 1 0-1.1.55.55 0 0 1 0 1.1z" fill="#ffd343"/>
+    <path
+      d="M7.18 0c-3.62 0-3.39 1.57-3.39 1.57v1.44h3.44v.49H2.38S0 3.14 0 6.78c0 3.65 2.11 3.51 2.11 3.51h1.26V8.65s-.08-1.92 1.9-1.92h3.44c1.98 0 1.9-1.83 1.9-1.83V1.5c0-1.5-2.03-1.5-2.03-1.5zm-2.02.94a.55.55 0 1 1 0 1.1.55.55 0 0 1 0-1.1z"
+      fill="#306998"
+    />
+    <path
+      d="M7.82 14c3.62 0 3.39-1.57 3.39-1.57v-1.44H7.77v-.49h4.85s2.38.36 2.38-3.28c0-3.65-2.11-3.51-2.11-3.51h-1.26v1.64s.08 1.92-1.9 1.92H7.29c-1.98 0-1.9 1.83-1.9 1.83V12.5c0 1.5 2.03 1.5 2.03 1.5zm2.02-.94a.55.55 0 1 1 0-1.1.55.55 0 0 1 0 1.1z"
+      fill="#ffd343"
+    />
   </g>
 </svg>
