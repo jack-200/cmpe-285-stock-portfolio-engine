@@ -36,15 +36,15 @@ _(Note: This is a static UI preview. Real-time data fetching and portfolio gener
 
 ### Prerequisites
 
-- **Python 3.12+** (matches `main.py` metadata).
+- **Python 3.12+** (matches packaged application metadata).
 - **Optional:** [Ollama](https://ollama.com) for local LLM features (portfolio “why this pick” blurbs and InvestIQ chat). Cloud OpenAI works too; see `.env.example`.
 
 ### Shell scripts
 
-| Script | Purpose |
-|--------|---------|
+| Script                             | Purpose                                                                                                                                                                                                                                                                                                                                             |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **`./scripts/setup-local-llm.sh`** | One-time (or occasional) **Ollama** setup: installs Ollama on **Linux** (official installer) or **macOS** (Homebrew if present), then runs `ollama pull` for `LLM_MODEL` (default `llama3.2`). Reads `.env` when present. Use `./scripts/setup-local-llm.sh --pull-only` if Ollama is already installed and you only need to pull/update the model. |
-| **`./scripts/start.sh`** | Creates **`.venv`** when missing, installs **`requirements.txt`** when the venv is new or requirements changed, **sources `.env`** if it exists, prints LLM/Ollama hints, then runs **`python main.py`** so the app serves **`http://localhost:8000`**. |
+| **`./scripts/start.sh`**           | Creates **`.venv`** when missing, installs **`requirements.txt`** when the venv is new or requirements changed, **sources `.env`** if it exists, prints LLM/Ollama hints, then runs **`python -m app.main`** so the app serves **`http://localhost:8000`**.                                                                                         |
 
 Make scripts executable once if needed: `chmod +x scripts/setup-local-llm.sh scripts/start.sh`.
 
@@ -56,4 +56,4 @@ Make scripts executable once if needed: `chmod +x scripts/setup-local-llm.sh scr
 
 ### Without the scripts
 
-You can still use **`uv run main.py`** (dependencies come from the PEP 723 block in `main.py`) or create a venv manually, **`pip install -r requirements.txt`**, **`python main.py`**. Environment variables for the LLM are not loaded automatically unless you export them or use **`scripts/start.sh`** / your shell profile.
+You can still use **`uv run -m app.main`** or create a venv manually, **`pip install -r requirements.txt`**, **`python -m app.main`**. Environment variables for the LLM are not loaded automatically unless you export them or use **`scripts/start.sh`** / your shell profile.

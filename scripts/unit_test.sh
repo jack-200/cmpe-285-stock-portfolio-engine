@@ -75,8 +75,8 @@ start_server() {
     log "or pass ${B}--no-start${N} after starting the server yourself."
     return 1
   fi
-  log "Starting server: $ROOT/.venv/bin/python main.py"
-  ( "$ROOT/.venv/bin/python" "$ROOT/main.py" >"$TMP/server.log" 2>&1 ) &
+  log "Starting server: $ROOT/.venv/bin/python -m app.main"
+  ( "$ROOT/.venv/bin/python" -m app.main >"$TMP/server.log" 2>&1 ) &
   SERVER_PID=$!
   log "Waiting for $BASE_URL/api/health (up to 60s) ..."
   for i in $(seq 1 60); do

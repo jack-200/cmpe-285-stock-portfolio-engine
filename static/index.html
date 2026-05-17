@@ -37,7 +37,11 @@
         <!-- Column 1: Configuration -->
         <section class="config-panel glass">
           <h3>Configuration</h3>
-          <p id="config-server-hint" class="config-server-hint" aria-live="polite">
+          <p
+            id="config-server-hint"
+            class="config-server-hint"
+            aria-live="polite"
+          >
             Loading server hints…
           </p>
           <form id="portfolio-form" class="config-form">
@@ -56,9 +60,17 @@
 
               <div class="input-group">
                 <label for="risk-profile">Risk Profile</label>
-                <div class="risk-profile-group" role="radiogroup" aria-label="Risk profile">
+                <div
+                  class="risk-profile-group"
+                  role="radiogroup"
+                  aria-label="Risk profile"
+                >
                   <label class="risk-option">
-                    <input type="radio" name="risk_profile" value="Conservative" />
+                    <input
+                      type="radio"
+                      name="risk_profile"
+                      value="Conservative"
+                    />
                     <span>Conservative</span>
                   </label>
                   <label class="risk-option">
@@ -71,11 +83,17 @@
                     <span>Moderate</span>
                   </label>
                   <label class="risk-option">
-                    <input type="radio" name="risk_profile" value="Aggressive" />
+                    <input
+                      type="radio"
+                      name="risk_profile"
+                      value="Aggressive"
+                    />
                     <span>Aggressive</span>
                   </label>
                 </div>
-                <p class="hint">Tilts allocation between strategies and tickers.</p>
+                <p class="hint">
+                  Tilts allocation between strategies and tickers.
+                </p>
               </div>
 
               <div class="input-group">
@@ -233,8 +251,8 @@
     </div>
 
     <script>
-      if (typeof marked !== 'undefined') {
-        marked.setOptions({ breaks: true, gfm: true })
+      if (typeof marked !== "undefined") {
+        marked.setOptions({ breaks: true, gfm: true });
       }
     </script>
     <script src="script.js"></script>
@@ -273,7 +291,11 @@
             placeholder="Type a message…"
             autocomplete="off"
           ></textarea>
-          <button type="submit" id="chat-send" class="chat-send-btn primary-btn">
+          <button
+            type="submit"
+            id="chat-send"
+            class="chat-send-btn primary-btn"
+          >
             Send
           </button>
         </form>
