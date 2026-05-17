@@ -100,7 +100,9 @@ document.addEventListener('DOMContentLoaded', () => {
           : 'Set LLM_BACKEND in .env to enable chat; portfolio blurbs may still be built-in.'
       }
     } catch (_) {
-      if (el) { el.textContent = 'Could not load /api/health (is the server running?)' }
+      if (el) {
+        el.textContent = 'Could not load /api/health (is the server running?)'
+      }
     }
   }
 
@@ -231,7 +233,9 @@ document.addEventListener('DOMContentLoaded', () => {
           const streamResult = await consumeChatStream(payload, (_t, acc) => {
             // Plain text while streaming avoids half-rendered ** markers; final HTML uses Markdown.
             live.textContent = acc
-            if (chatMessagesEl) { chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight }
+            if (chatMessagesEl) {
+              chatMessagesEl.scrollTop = chatMessagesEl.scrollHeight
+            }
           })
 
           if (streamResult.noLlm) {
