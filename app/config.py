@@ -85,8 +85,9 @@ TICKER_RISK_TILT: typing.Dict[str, typing.Dict[str, float]] = {
     },
 }
 
-# yfinance period strings the UI is allowed to ask for. "5d" preserves the
-# original assignment spec (5-day weekly trend) as the default.
+# yfinance period strings the UI is allowed to ask for. The trimmed history
+# window keeps one extra trading day so the return is measured over the full
+# requested span (for example, 5D compares against the close 5 trading days ago).
 HistoryPeriod = typing.Literal["5d", "1mo", "3mo", "1y"]
 DEFAULT_HISTORY_PERIOD: HistoryPeriod = "5d"
 ALLOWED_HISTORY_PERIODS: typing.Tuple[HistoryPeriod, ...] = ("5d", "1mo", "3mo", "1y")
@@ -94,9 +95,9 @@ ALLOWED_HISTORY_PERIODS: typing.Tuple[HistoryPeriod, ...] = ("5d", "1mo", "3mo",
 # period can be served from one call, then trimmed for the chart.
 YFINANCE_FETCH_PERIOD = "1y"
 PERIOD_TRIM_DAYS: typing.Dict[HistoryPeriod, typing.Optional[int]] = {
-    "5d": 5,
-    "1mo": 22,
-    "3mo": 66,
+    "5d": 6,
+    "1mo": 23,
+    "3mo": 67,
     "1y": None,
 }
 
