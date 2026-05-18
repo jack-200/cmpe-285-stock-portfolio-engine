@@ -30,7 +30,7 @@ _(Note: This is a static UI preview. Real-time data fetching and portfolio gener
 
 - **Backend**: Python (FastAPI, Uvicorn, yfinance, Pandas, Pydantic)
 - **Frontend**: HTML5, CSS3, JavaScript (Chart.js)
-- **Tools & Management**: uv, **`scripts/start.sh`** / **`scripts/setup-local-llm.sh`**, Antigravity AI, VS Code, GitHub
+- **Tools & Management**: uv, **`scripts/start.sh`** / **`scripts/start.ps1`** / **`scripts/setup-local-llm.sh`** / **`scripts/setup-local-llm.ps1`**, Antigravity AI, VS Code, GitHub
 
 ![InvestIQ Tech Stack](assets/tech-stack.png)
 
@@ -43,18 +43,20 @@ _(Note: This is a static UI preview. Real-time data fetching and portfolio gener
 
 ### Shell scripts
 
-| Script                             | Purpose                                                                                                                                                                                                                                                                                                                                             |
-| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **`./scripts/setup-local-llm.sh`** | One-time (or occasional) **Ollama** setup: installs Ollama on **Linux** (official installer) or **macOS** (Homebrew if present), then runs `ollama pull` for `LLM_MODEL` (default `llama3.2`). Reads `.env` when present. Use `./scripts/setup-local-llm.sh --pull-only` if Ollama is already installed and you only need to pull/update the model. |
-| **`./scripts/start.sh`**           | Creates **`.venv`** when missing, installs **`requirements.txt`** when the venv is new or requirements changed, **sources `.env`** if it exists, prints LLM/Ollama hints, then runs **`python -m app.main`** so the app serves **`http://localhost:8000`**.                                                                                         |
+| Script | Purpose |
+| --- | --- |
+| `setup-local-llm.sh` | Ollama setup for Linux or macOS. |
+| `setup-local-llm.ps1` | Ollama setup for Windows. Installs Ollama if needed, then pulls `LLM_MODEL`. Use `-PullOnly` to skip install. |
+| `start.sh` | Startup script for Linux/macOS. |
+| `start.ps1` | Startup script for Windows. |
 
 Make scripts executable once if needed: `chmod +x scripts/setup-local-llm.sh scripts/start.sh`.
 
 ### Recommended flow
 
-1. Copy **`cp .env.example .env`** and adjust variables (`LLM_BACKEND`, `OLLAMA_HOST`, `LLM_MODEL`, optional separate chat/rationale models—see `.env.example`).
-2. **Optional:** run **`./scripts/setup-local-llm.sh`** so Ollama and your model are ready locally.
-3. Run **`./scripts/start.sh`** and open **`http://localhost:8000`** in a browser.
+1. Copy `.env.example` to `.env` and adjust `LLM_BACKEND`, `OLLAMA_HOST`, and `LLM_MODEL`.
+2. Optional: run the Ollama setup script for your OS.
+3. Run the startup script for your OS, then open `http://localhost:8000`.
 
 ### Without the scripts
 
